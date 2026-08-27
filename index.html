@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Meta Glasses 5-Hand Video Poker</title>
+    <style>
+        :root {
+            --bg-clear: #000000;
+            --neon-blue: #00ffff;
+            --neon-yellow: #ffff00;
+            --neon-gold: #ffcc00;
+            --neon-green: #00ff00;
+            --card-white: #ffffff;
+            --card-red: #ff3333;
+            --card-black: #111111;
+            --text-white: #ffffff;
+            --meta-target: 60px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-clear);
+            font-family: 'Courier New', Courier, monospace, Arial, sans-serif;
+            font-weight: bold;
+            color: var(--text-white);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            width: 100vw;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        /* 600x600 Meta Glasses Optimized Viewport Constraints */
+        .app-container {
+            width: 600px;
+            height: 600px;
+            background-color: var(--bg-clear);
+            border: 4px solid var(--neon-blue);
+            border-radius: 12px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            position: relative;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+        }
+
+        .status-panel {
+            display: flex;
+            justify-content: space-between;
+            background-color: rgba(0, 0, 0, 0.8);
+            border: 2px solid var(--neon-yellow);
+            padding: 8px 12px;
+            font-size: 1.1rem;
+            color: var(--neon-yellow);
+            border-radius: 6px;
+        }
+
+        .status-panel span span {
+            color: var(--text-white);
+        }
+
+        .aux-hands-container {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 4px;
+            border-radius: 6px;
+            flex-grow: 1;
+            justify-content: center;
+        }
+
+        .hand-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0, 255, 255, 0.05);
+            padding: 2px 6px;
+            border-radius: 4px;
+            border-left: 4px solid transparent;
+            height: 48px;
+        }
+
+        .hand-row.winner {
+            border-left-color: var(--neon-yellow);
+            background: rgba(255, 255, 0, 0.1);
+        }
+
+        .hand-result-label {
+            font-size: 0.8rem;
+            width: 110px;
+            color: var(--neon-gold);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .mini-cards {
+            display: flex;
+            gap: 4px;
+        }
+
+        .card {
+            background-color: var(--card-white);
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .card.mini {
+            width: 34px;
+            height: 42px;
+            padding: 1px;
+            font-size: 0.75rem;
+            border: 1px solid #ccc;
+        }
+
+        .card.main {
+            width: 90px;
+            height: 125px;
+            padding: 6px;
+            font-size: 1.5rem;
+            cursor: pointer;
+            border: 3px solid #ccc;
+            outline: none;
+            font-family: inherit;
+            font-weight: bold;
+        }
+
+        /* Controller High Visibility Focus Ring */
+        .card.main.focused, .btn.focused {
+            border-color: #00ffff !important;
+            box-shadow: 0 0 15px #00ffff !important;
+            transform: scale(1.03);
+        }
+
+        .card.red { color: var(--card-red); }
+        .card.black { color: var(--card-black); }
+        
+        .card .suit-center {
+            align-self: center;
+            font-size: 1.3em;
+            line-height: 1;
+        }
+        .card.mini .suit-center {
+            font-size: 0.9em;
+        }
+
+        .card .rank-bottom {
+            align-self: flex-end;
+            transform: rotate(180deg);
+        }
+
+        .hold-tag {
+            position: absolute;
+            top: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: var(--neon-yellow);
+            color: #000;
+            font-size: 0.6rem;
+            padding: 1px 3px;
+            border-radius: 2px;
+            font-weight: 900;
+            visibility: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+            z-index: 2;
+        }
+
+        .card.is-held .hold-tag {
+            visibility: visible;
+        }
+        
+        .card.main.is-held {
+            border: 3px solid var(--neon-yellow);
+        }
+
+        .main-hand-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            margin-bottom: 4px;
+        }
+
+        .main-cards {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            width: 100%;
+        }
+
+        .main-hand-label {
+            color: var(--neon-yellow);
+            font-size: 1.1rem;
+            height: 20px;
+            text-shadow: 0 0 4px #000;
+        }
+
+        .controls-panel {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1.5fr;
+            gap: 10px;
+        }
+
+        .btn {
+            background: linear-gradient(180deg, #222 0%, #000 100%);
+            color: var(--text-white);
+            border: 3px solid #666;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            font-family: inherit;
+            cursor: pointer;
+            min-height: var(--meta-target);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-transform: uppercase;
+            outline: none;
+        }
+
+        .btn-payouts {
+            border-color: var(--neon-gold);
+            color: var(--neon-gold);
+        }
+
+        .btn-bet {
+            border-color: #00ccff;
+            color: #00ccff;
+        }
+
+        .btn-action {
+            border-color: var(--neon-yellow);
+            color: var(--neon-yellow);
+            background: linear-gradient(180deg, #aa1100 0%, #550000 100%);
+        }
+        
+        .btn-action.draw-mode {
+            background: linear-gradient(180deg, #008800 0%, #003300 100%);
+            border-color: var(--neon-green);
+            color: var(--neon-green);
+        }
+
+        .overlay {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            right: 8px;
+            bottom: 8px;
+            background-color: rgba(0, 0, 0, 0.95);
+            border: 3px solid var(--neon-blue);
+            border-radius: 8px;
+            z-index: 10;
+            display: none;
+            flex-direction: column;
+            padding: 12px;
+        }
+
+        .overlay-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--neon-blue);
+            padding-bottom: 6px;
+            margin-bottom: 8px;
+        }
+
+        .overlay-title {
+            color: var(--neon-yellow);
+            font-size: 1.2rem;
+        }
+
+        .close-overlay {
+            background: #cc0000;
+            color: white;
+            border: 2px solid white;
+            padding: 4px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            min-height: 40px;
+        }
+
+        .close-overlay.focused {
+            border-color: #00ffff !important;
+            box-shadow: 0 0 10px #00ffff;
+        }
+
+        .paytable-grid {
+            display: grid;
+            grid-template-columns: 2fr repeat(4, 1fr);
+            gap: 4px;
+            font-size: 0.75rem;
+            overflow-y: auto;
+        }
+
+        .paytable-cell {
+            padding: 4px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .paytable-cell.header {
+            color: var(--neon-blue);
+            border-bottom: 2px solid var(--neon-blue);
+            font-weight: bold;
+        }
+        .paytable-cell.highlight {
+            background-color: rgba(0, 255, 255, 0.2);
+            color: var(--neon-blue);
+            font-weight: bold;
+        }
+
+        .summary-content {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            overflow-y: auto;
+        }
+        
+        .summary-line {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            border-bottom: 1px dashed rgba(255,255,255,0.2);
+            font-size: 1rem;
+        }
+
+        .win-total-highlight {
+            font-size: 1.3rem;
+            color: var(--neon-yellow);
+            text-align: center;
+            margin-top: auto;
+            padding: 8px;
+            background: #000;
+            border: 2px solid var(--neon-yellow);
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <div class="status-panel">
+            <span>CREDITS: <span id="label-credits">4000</span></span>
+            <span>TOTAL BET: <span id="label-total-bet">25</span></span>
+            <span>WON: <span id="label-won">0</span></span>
+        </div>
+
+        <div class="aux-hands-container" id="aux-hands-box"></div>
+
+        <div class="main-hand-container">
+            <div class="main-hand-label" id="main-result-string"></div>
+            <div class="main-cards" id="main-cards-box"></div>
+        </div>
+
+        <div class="controls-panel">
+            <button class="btn btn-payouts" id="btn-payouts">Payouts</button>
+            <button class="btn btn-bet" id="btn-bet">Bet<br><span id="bet-sub-label">5 Per</span></button>
+            <button class="btn btn-action" id="btn-main-action">Deal</button>
+        </div>
+
+        <div class="overlay" id="overlay-payouts">
+            <div class="overlay-header">
+                <div class="overlay-title">Jacks or Better Paytable</div>
+                <button class="close-overlay" id="close-payouts">Close</button>
+            </div>
+            <div class="paytable-grid" id="paytable-matrix-box"></div>
+        </div>
+
+        <div class="overlay" id="overlay-summary">
+            <div class="overlay-header">
+                <div class="overlay-title">Hand Summary</div>
+                <button class="close-overlay" id="close-summary">Next Hand</button>
+            </div>
+            <div class="summary-content" id="summary-list-box"></div>
+            <div class="win-total-highlight" id="summary-total-payout">Total Won: 0 Credits</div>
+        </div>
+    </div>
+
+    <script>
+        class AudioEngine {
+            constructor() {
+                this.ctx = null;
+                this.bellInterval = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+
+            playFlip() {
+                this.init();
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(130, now);
+                osc.frequency.exponentialRampToValueAtTime(35, now + 0.07);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.07);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.07);
+            }
+
+            startBellSequence(creditsWon, onStepComplete, onFinished) {
+                this.init();
+                this.stopBellSequence();
+                if (creditsWon <= 0 || !this.ctx) {
+                    if (onFinished) onFinished();
+                    return;
+                }
+
+                let remaining = creditsWon;
+                const intervalSpeed = creditsWon > 50 ? 10 : (creditsWon > 20 ? 35 : 75);
+
+                const runNode = () => {
+                    if (remaining <= 0) {
+                        this.stopBellSequence();
+                        if (onFinished) onFinished();
+                        return;
+                    }
+                    const now = this.ctx.currentTime;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(1350, now);
+                    gain.gain.setValueAtTime(0.12, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.1);
+                    remaining--;
+                    if (onStepComplete) onStepComplete(creditsWon - remaining);
+                };
+
+                runNode();
+                this.bellInterval = setInterval(runNode, intervalSpeed);
+            }
+
+            stopBellSequence() {
+                if (this.bellInterval) {
+                    clearInterval(this.bellInterval);
+                    this.bellInterval = null;
+                }
+            }
+        }
+
+        const sound = new AudioEngine();
+
+        const SUITS = [
+            { symbol: '♠', name: 'spades', color: 'black' },
+            { symbol: '♥', name: 'hearts', color: 'red' },
+            { symbol: '♦', name: 'diamonds', color: 'red' },
+            { symbol: '♣', name: 'clubs', color: 'black' }
+        ];
+
+        const RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+        const BET_STEPS = [1, 5, 10, 100];
+
+        const PAYTABLE = [
+            { id: 'rf', name: 'Royal Flush',     multipliers: [250, 1250, 2500, 25000] },
+            { id: 'sf', name: 'Straight Flush',  multipliers: [50, 250, 500, 5000] },
+            { id: 'fk', name: '4 of a Kind',     multipliers: [25, 125, 250, 2500] },
+            { id: 'fh', name: 'Full House',      multipliers: [9, 45, 90, 900] },
+            { id: 'fl', name: 'Flush',           multipliers: [6, 30, 60, 600] },
+            { id: 'st', name: 'Straight',        multipliers: [4, 20, 40, 400] },
+            { id: 'tk', name: '3 of a Kind',     multipliers: [3, 15, 30, 300] },
+            { id: 'tp', name: 'Two Pair',        multipliers: [2, 10, 20, 200] },
+            { id: 'jb', name: 'Jacks or Better', multipliers: [1, 5, 10, 100] }
+        ];
+
+        let state = {
+            credits: 4000,
+            betIndex: 1, 
+            currentPhase: 'IDLE', 
+            mainHand: [], 
+            heldIndices: [false, false, false, false, false],
+            splitHands: [], 
+            splitResults: [], 
+            totalWonThisRound: 0,
+            masterDeck: []
+        };
+
+        // Accessibility / Navigation Context Mapping
+        let navIndex = 0;
+        let navTargets = [];
+
+        function buildDeck() {
+            let deck = [];
+            for (let r = 0; r < RANKS.length; r++) {
+                for (let s = 0; s < SUITS.length; s++) {
+                    deck.push({ rankIndex: r, rankStr: RANKS[r], suit: SUITS[s] });
+                }
+            }
+            return deck;
+        }
+
+        function shuffle(deck) {
+            for (let i = deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [deck[i], deck[j]] = [deck[j], deck[i]];
+            }
+            return deck;
+        }
+
+        function getBetPerHand() {
+            return BET_STEPS[state.betIndex];
+        }
+
+        function getTotalBet() {
+            return getBetPerHand() * 5;
+        }
+
+        function evaluateHand(cards) {
+            const ranks = cards.map(c => c.rankIndex).sort((a, b) => a - b);
+            const suits = cards.map(c => c.suit.name);
+            const isFlush = suits.every(s => s === suits[0]);
+            
+            let isStraight = false;
+            let uniqueRanks = [...new Set(ranks)];
+            if (uniqueRanks.length === 5) {
+                if (ranks[4] - ranks[0] === 4) {
+                    isStraight = true;
+                } else if (ranks[4] === 12 && ranks[0] === 0 && ranks[1] === 1 && ranks[2] === 2 && ranks[3] === 3) {
+                    isStraight = true;
+                }
+            }
+
+            let counts = {};
+            ranks.forEach(r => counts[r] = (counts[r] || 0) + 1);
+            const valFreq = Object.values(counts).sort((a, b) => b - a);
+
+            let hasJacksOrBetter = false;
+            for (let key in counts) {
+                if (counts[key] === 2 && parseInt(key) >= 9) { 
+                    hasJacksOrBetter = true;
+                }
+            }
+
+            if (isFlush && isStraight) {
+                if (ranks[0] === 8 && ranks[4] === 12) return { id: 'rf', label: 'ROYAL FLUSH' };
+                return { id: 'sf', label: 'STRAIGHT FLUSH' };
+            }
+            if (valFreq[0] === 4) return { id: 'fk', label: '4 OF A KIND' };
+            if (valFreq[0] === 3 && valFreq[1] === 2) return { id: 'fh', label: 'FULL HOUSE' };
+            if (isFlush) return { id: 'fl', label: 'FLUSH' };
+            if (isStraight) return { id: 'st', label: 'STRAIGHT' };
+            if (valFreq[0] === 3) return { id: 'tk', label: '3 OF A KIND' };
+            if (valFreq[0] === 2 && valFreq[1] === 2) return { id: 'tp', label: 'TWO PAIR' };
+            if (hasJacksOrBetter) return { id: 'jb', label: 'JACKS OR BETTER' };
+            
+            return { id: 'none', label: 'HIGH CARD' };
+        }
+
+        function calculatePayout(resultId, bet) {
+            if (resultId === 'none') return 0;
+            const payRow = PAYTABLE.find(p => p.id === resultId);
+            if (!payRow) return 0;
+            return payRow.multipliers[state.betIndex];
+        }
+
+        function triggerMainAction() {
+            if (state.currentPhase === 'TICKING_AUDIO') {
+                sound.stopBellSequence();
+                finalizeCreditsBypass();
+                startNewDealPhase();
+                return;
+            }
+
+            if (state.currentPhase === 'IDLE') {
+                startNewDealPhase();
+            } else if (state.currentPhase === 'DRAWING') {
+                executeDrawPhase();
+            }
+        }
+
+        function startNewDealPhase() {
+            const cost = getTotalBet();
+            if (state.credits < cost) {
+                alert("Insufficient credits! Adding default bankroll.");
+                state.credits = 4000;
+                updateUIPanels();
+                return;
+            }
+
+            state.credits -= cost;
+            state.totalWonThisRound = 0;
+            state.heldIndices = [false, false, false, false, false];
+            document.getElementById('label-won').textContent = "0";
+            
+            state.masterDeck = shuffle(buildDeck());
+
+            state.mainHand = [];
+            for (let i = 0; i < 5; i++) {
+                state.mainHand.push(state.masterDeck.pop());
+            }
+
+            state.splitHands = [];
+            for (let h = 0; h < 4; h++) {
+                state.splitHands.push([...state.mainHand]);
+            }
+
+            state.currentPhase = 'DRAWING';
+            sound.playFlip();
+            updateUIPanels();
+            rebuildNavigationTree();
+        }
+
+        function executeDrawPhase() {
+            for (let i = 0; i < 5; i++) {
+                if (!state.heldIndices[i]) {
+                    state.mainHand[i] = state.masterDeck.pop();
+                }
+            }
+
+            for (let h = 0; h < 4; h++) {
+                let independentPool = shuffle([...state.masterDeck]);
+                for (let i = 0; i < 5; i++) {
+                    if (!state.heldIndices[i]) {
+                        state.splitHands[h][i] = independentPool.pop();
+                    }
+                }
+            }
+
+            state.splitResults = [];
+            let totalWinValue = 0;
+            const betPerHand = getBetPerHand();
+
+            for (let h = 0; h < 4; h++) {
+                const evalInfo = evaluateHand(state.splitHands[h]);
+                const winValue = calculatePayout(evalInfo.id, betPerHand);
+                totalWinValue += winValue;
+                state.splitResults.push({ label: evalInfo.label, payout: winValue });
+            }
+
+            const mainEval = evaluateHand(state.mainHand);
+            const mainWin = calculatePayout(mainEval.id, betPerHand);
+            totalWinValue += mainWin;
+            state.splitResults.push({ label: mainEval.label, payout: mainWin });
+
+            state.totalWonThisRound = totalWinValue;
+            state.currentPhase = 'TICKING_AUDIO';
+            
+            sound.playFlip();
+            updateUIPanels();
+            compileSummarySheet();
+            rebuildNavigationTree();
+
+            sound.startBellSequence(
+                state.totalWonThisRound,
+                (currentTicked) => {
+                    document.getElementById('label-won').textContent = currentTicked;
+                },
+                () => {
+                    finalizeCreditsBypass();
+                }
+            );
+        }
+
+        function finalizeCreditsBypass() {
+            if (state.currentPhase === 'TICKING_AUDIO') {
+                state.credits += state.totalWonThisRound;
+                document.getElementById('label-won').textContent = state.totalWonThisRound;
+                state.currentPhase = 'IDLE';
+                updateUIPanels();
+                
+                if (state.totalWonThisRound > 0) {
+                    document.getElementById('overlay-summary').style.display = 'flex';
+                    rebuildNavigationTree();
+                }
+            }
+        }
+
+        function toggleCardHold(index) {
+            if (state.currentPhase !== 'DRAWING') return;
+            state.heldIndices[index] = !state.heldIndices[index];
+            sound.playFlip();
+            updateUIPanels();
+        }
+
+        function updateUIPanels() {
+            document.getElementById('label-credits').textContent = state.credits;
+            document.getElementById('label-total-bet').textContent = getTotalBet();
+            document.getElementById('bet-sub-label').textContent = `${getBetPerHand()} Per`;
+
+            const actionBtn = document.getElementById('btn-main-action');
+            if (state.currentPhase === 'DRAWING') {
+                actionBtn.textContent = "Draw";
+                actionBtn.classList.add('draw-mode');
+            } else if (state.currentPhase === 'TICKING_AUDIO') {
+                actionBtn.textContent = "Deal";
+                actionBtn.classList.remove('draw-mode');
+            } else {
+                actionBtn.textContent = "Deal";
+                actionBtn.classList.remove('draw-mode');
+            }
+
+            document.getElementById('btn-bet').disabled = (state.currentPhase === 'DRAWING' || state.currentPhase === 'TICKING_AUDIO');
+
+            renderAuxiliaryHands();
+            renderMainHand();
+        }
+
+        function renderAuxiliaryHands() {
+            const container = document.getElementById('aux-hands-box');
+            container.innerHTML = '';
+
+            for (let h = 0; h < 4; h++) {
+                const rowElement = document.createElement('div');
+                rowElement.className = 'hand-row';
+                
+                let labelText = `Hand ${h + 1}`;
+                if ((state.currentPhase === 'IDLE' || state.currentPhase === 'TICKING_AUDIO') && state.splitResults[h]) {
+                    if (state.splitResults[h].payout > 0) {
+                        rowElement.classList.add('winner');
+                        labelText = `${state.splitResults[h].label} +${state.splitResults[h].payout}`;
+                    } else {
+                        labelText = state.splitResults[h].label;
+                    }
+                }
+
+                const labelDiv = document.createElement('div');
+                labelDiv.className = 'hand-result-label';
+                labelDiv.textContent = labelText;
+                rowElement.appendChild(labelDiv);
+
+                const cardsWrap = document.createElement('div');
+                cardsWrap.className = 'mini-cards';
+
+                const activeHand = state.splitHands[h] || [];
+                for (let i = 0; i < 5; i++) {
+                    const cardDiv = document.createElement('div');
+                    cardDiv.className = 'card mini';
+                    
+                    if (activeHand[i] && (state.currentPhase === 'DRAWING' || state.currentPhase === 'IDLE' || state.currentPhase === 'TICKING_AUDIO')) {
+                        const cardData = activeHand[i];
+                        cardDiv.classList.add(cardData.suit.color);
+                        if (state.heldIndices[i]) cardDiv.classList.add('is-held');
+
+                        cardDiv.innerHTML = `
+                            <div>${cardData.rankStr}</div>
+                            <div class="suit-center">${cardData.suit.symbol}</div>
+                            <div class="hold-tag">HELD</div>
+                        `;
+                    } else {
+                        cardDiv.style.background = 'linear-gradient(135deg, #440000 25%, #110000 100%)';
+                        cardDiv.style.border = '1px solid #555';
+                    }
+                    cardsWrap.appendChild(cardDiv);
+                }
+
+                rowElement.appendChild(cardsWrap);
+                container.appendChild(rowElement);
+            }
+        }
+
+        function renderMainHand() {
+            const container = document.getElementById('main-cards-box');
+            container.innerHTML = '';
+
+            const resultLabel = document.getElementById('main-result-string');
+            if ((state.currentPhase === 'IDLE' || state.currentPhase === 'TICKING_AUDIO') && state.splitResults[4]) {
+                resultLabel.textContent = `${state.splitResults[4].label} (+${state.splitResults[4].payout})`;
+            } else {
+                resultLabel.textContent = state.currentPhase === 'DRAWING' ? "TAP OR CHOOSE CARDS TO HOLD" : "";
+            }
+
+            for (let i = 0; i < 5; i++) {
+                const cardButton = document.createElement('button');
+                cardButton.className = 'card main';
+                cardButton.id = 'main-card-' + i;
+
+                if (state.mainHand[i]) {
+                    const cardData = state.mainHand[i];
+                    cardButton.classList.add(cardData.suit.color);
+                    if (state.heldIndices[i]) cardButton.classList.add('is-held');
+
+                    cardButton.innerHTML = `
+                        <div>${cardData.rankStr}</div>
+                        <div class="suit-center">${cardData.suit.symbol}</div>
+                        <div class="rank-bottom">${cardData.rankStr}</div>
+                        <div class="hold-tag">HELD</div>
+                    `;
+                    
+                    cardButton.onclick = () => toggleCardHold(i);
+                } else {
+                    cardButton.style.background = 'linear-gradient(135deg, #440000 25%, #110000 100%)';
+                    cardButton.style.border = '2px solid #555';
+                }
+
+                container.appendChild(cardButton);
+            }
+        }
+
+        function compileSummarySheet() {
+            const box = document.getElementById('summary-list-box');
+            box.innerHTML = '';
+
+            state.splitResults.forEach((res, idx) => {
+                const line = document.createElement('div');
+                line.className = 'summary-line';
+                const handTitle = idx === 4 ? "Main Hand" : `Hand ${idx + 1}`;
+                line.innerHTML = `
+                    <span>${handTitle} (${res.label})</span>
+                    <span style="color: ${res.payout > 0 ? 'var(--neon-yellow)' : '#fff'}">${res.payout} cr</span>
+                `;
+                box.appendChild(line);
+            });
+
+            document.getElementById('summary-total-payout').textContent = `Total Won: ${state.totalWonThisRound} Credits`;
+        }
+
+        function buildPaytableDisplay() {
+            const container = document.getElementById('paytable-matrix-box');
+            container.innerHTML = '';
+
+            const headers = ['Hand Type', '1 Cr', '5 Cr', '10 Cr', '100 Cr'];
+            headers.forEach(h => {
+                const cell = document.createElement('div');
+                cell.className = 'paytable-cell header';
+                cell.textContent = h;
+                container.appendChild(cell);
+            });
+
+            PAYTABLE.forEach(row => {
+                const nameCell = document.createElement('div');
+                nameCell.className = 'paytable-cell';
+                nameCell.style.color = 'var(--neon-gold)';
+                nameCell.textContent = row.name;
+                container.appendChild(nameCell);
+
+                row.multipliers.forEach((val, loopIdx) => {
+                    const valCell = document.createElement('div');
+                    valCell.className = 'paytable-cell';
+                    if (loopIdx === state.betIndex) {
+                        valCell.classList.add('highlight');
+                    }
+                    valCell.textContent = val;
+                    container.appendChild(valCell);
+                });
+            });
+        }
+
+        // --- Meta Spatial Accessibility Focus & Hardware Map Engine ---
+        function rebuildNavigationTree() {
+            // Remove previous focus tracking rings safely
+            navTargets.forEach(el => { if(el) el.classList.remove('focused'); });
+            
+            navTargets = [];
+            
+            // Check active visibility layers to construct directional node trees dynamically
+            const pOverlay = document.getElementById('overlay-payouts');
+            const sOverlay = document.getElementById('overlay-summary');
+            
+            if (pOverlay.style.display === 'flex') {
+                navTargets.push(document.getElementById('close-payouts'));
+            } else if (sOverlay.style.display === 'flex') {
+                navTargets.push(document.getElementById('close-summary'));
+            } else {
+                // Main gameplay branch targeting hierarchy
+                if (state.currentPhase === 'DRAWING') {
+                    for(let i=0; i<5; i++) {
+                        navTargets.push(document.getElementById('main-card-' + i));
+                    }
+                }
+                navTargets.push(document.getElementById('btn-payouts'));
+                if (state.currentPhase === 'IDLE') {
+                    navTargets.push(document.getElementById('btn-bet'));
+                }
+                navTargets.push(document.getElementById('btn-main-action'));
+            }
+
+            // Boundary validation
+            if (navIndex >= navTargets.length) navIndex = 0;
+            if (navTargets[navIndex]) navTargets[navIndex].classList.add('focused');
+        }
+
+        function shiftFocus(offset) {
+            if (navTargets.length === 0) return;
+            if (navTargets[navIndex]) navTargets[navIndex].classList.remove('focused');
+            
+            navIndex = (navIndex + offset + navTargets.length) % navTargets.length;
+            
+            if (navTargets[navIndex]) navTargets[navIndex].classList.add('focused');
+        }
+
+        function executeFocusedSelection() {
+            if (navTargets.length === 0 || !navTargets[navIndex]) return;
+            // Native finger pinched/clicked element emulation override
+            navTargets[navIndex].click();
+            // Recalculate maps instantly if layers changed
+            setTimeout(rebuildNavigationTree, 50);
+        }
+
+        // Global key code monitoring for controller support
+        window.addEventListener('keydown', (e) => {
+            switch(e.key) {
+                case 'ArrowLeft':
+                case 'ArrowUp':
+                    e.preventDefault();
+                    shiftFocus(-1);
+                    break;
+                case 'ArrowRight':
+                case 'ArrowDown':
+                    e.preventDefault();
+                    shiftFocus(1);
+                    break;
+                case 'Enter':
+                case ' ':
+                    e.preventDefault();
+                    executeFocusedSelection();
+                    break;
+            }
+        });
+
+        // Interface interaction linking mappings
+        document.getElementById('btn-main-action').addEventListener('click', triggerMainAction);
+        
+        document.getElementById('btn-bet').addEventListener('click', () => {
+            if (state.currentPhase !== 'IDLE') return;
+            state.betIndex = (state.betIndex + 1) % BET_STEPS.length;
+            sound.playFlip();
+            updateUIPanels();
+        });
+
+        document.getElementById('btn-payouts').addEventListener('click', () => {
+            buildPaytableDisplay();
+            document.getElementById('overlay-payouts').style.display = 'flex';
+            rebuildNavigationTree();
+        });
+        document.getElementById('close-payouts').addEventListener('click', () => {
+            document.getElementById('overlay-payouts').style.display = 'none';
+            rebuildNavigationTree();
+        });
+        document.getElementById('close-summary').addEventListener('click', () => {
+            document.getElementById('overlay-summary').style.display = 'none';
+            rebuildNavigationTree();
+        });
+
+        // App Boot configuration setup
+        updateUIPanels();
+        rebuildNavigationTree();
+    </script>
+</body>
+</html>
